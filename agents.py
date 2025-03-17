@@ -28,7 +28,7 @@ from api.agentes.tools import optimizationTools, queryTools, getPlano # Ferramen
 # Definição dos diretórios e carregamento dos documentos
 # =======================
 
-# Obtém o diretório base onde o script está rodando e define os diretórios dos documentos e do índice
+# Obtém o diretório base e define os diretórios dos documentos e do índice
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
 INDEX_DIR = os.path.join(BASE_DIR, "faiss_index")
@@ -37,7 +37,7 @@ INDEX_DIR = os.path.join(BASE_DIR, "faiss_index")
 loader_banco = TextLoader(os.path.join(DOCS_DIR, "banco.txt"), encoding="utf-8")
 docs_banco = loader_banco.load()
 
-# Carrega o texto que contém informações retiradas do Extreme Presentation, para melhorar a geração de gráficos
+# Carrega o texto que contém informações sobre metodologia de geração de gráficos (Extreme Presentation)
 loader_graficos = TextLoader(os.path.join(DOCS_DIR, "graficos.txt"), encoding="utf-8")
 docs_graficos = loader_graficos.load()
 
@@ -49,11 +49,11 @@ docs_manual = loader_manual.load()
 loader_documentacao = TextLoader(os.path.join(DOCS_DIR, "documentacao.txt"), encoding="utf-8")
 docs_documentacao = loader_documentacao.load()
 
-# Carrega o texto que contém informações sobre navegação na aplicação. Feature que não foi colocada no artigo, mas já existe no sistema.
+# Carrega o texto que contém informações sobre as rotas da aplicação. Feature que não foi colocada no artigo, mas já existe no sistema (o agente direciona para a página relevante).
 loader_links = TextLoader(os.path.join(DOCS_DIR, "links.txt"), encoding="utf-8")
 docs_links = loader_links.load()
 
-# Junta todos os documentos em uma única lista para indexação
+# Junta todos os documentos para indexação
 docs = docs_banco + docs_graficos + docs_manual + docs_documentacao + docs_links
 
 # =======================
@@ -64,7 +64,7 @@ embeddings = OpenAIEmbeddings()
 
 # Cria ou carrega o índice FAISS com persistência local
 if os.path.exists(INDEX_DIR):
-    # Carrega o índice salvo localmente, permitindo a desserialização do conteúdo
+    # Carrega o índice salvo localmente
     vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
     print("Índice FAISS carregado do diretório local.")
 else:
@@ -87,6 +87,7 @@ def get_relevant_context(query, k=8):
 # =======================
 # É possível usar qualquer um para gerar as respostas dos agentes. É necessário ter uma chave de API válida para cada modelo.
 # O modelo usado no artigo foi o GPT-4o.
+# É possível usar um único modelo para todos os agentes, ou usar modelos diferentes entre eles. Mas também não foi explorado no artigo.
 
 model = ChatOpenAI(model="gpt-4o", temperature=1)
 #model = ChatOpenAI(model="gpt-4o-mini", temperature=1)
