@@ -1,40 +1,55 @@
-import os
-from dotenv import load_dotenv
+# Código dos agentes
+# 1. Definição dos diretórios e carregamento dos documentos usando embeddings e FAISS
+# 2. Criação dos prompts para os agentes
+# 3. Inicialização dos agentes com os prompts e as ferramentas
+
+import os # Para trabalhar com caminho de arquivos
+from dotenv import load_dotenv # Para carregar variáveis de ambiente, ex: chaves API
 load_dotenv()
 
-# Importação dos módulos do workflow e dos agentes
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_anthropic import ChatAnthropic
-from langgraph_supervisor import create_supervisor
-from langgraph.prebuilt import create_react_agent
-from api.agentes.tools import optimizationTools, queryTools, getPlano
+# Importação dos módulos para comunicação com API das LLMs
+from langchain_google_genai import ChatGoogleGenerativeAI # Permite uso do gemini
+from langchain_anthropic import ChatAnthropic # Permite uso do Claude
+from langchain_openai import ChatOpenAI # Permite uso do GPT-4o e GPT-4o-mini
 
-# Importação dos loaders e módulos para recuperação
-from langchain.document_loaders import TextLoader
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
+# Importação dos módulos para criação dos agentes
+from langgraph_supervisor import create_supervisor # Criação do supervisor
+from langgraph.prebuilt import create_react_agent # Criação dos agentes
+
+# Importação dos módulos para criação do embeddings e recuperação de contexto
+from langchain.document_loaders import TextLoader # Carregamento de documentos
+from langchain_openai import OpenAIEmbeddings # Embeddings para recuperação de contexto
+from langchain_community.vectorstores import FAISS # Índice FAISS para recuperação de contexto
+
+# Importação das ferramentas dos agentes, criadas pelos próprios desenvolvedores
+from api.agentes.tools import optimizationTools, queryTools, getPlano # Ferramentas para os agentes
 
 # =======================
 # Definição dos diretórios e carregamento dos documentos
 # =======================
+
 # Obtém o diretório base onde o script está rodando e define os diretórios dos documentos e do índice
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
-INDEX_DIR = os.path.join(BASE_DIR, "faiss_index")  # Diretório para persistência do índice
+INDEX_DIR = os.path.join(BASE_DIR, "faiss_index")
 
-# Carrega os documentos necessários (banco, gráficos, manual e documentação)
+# Carrega o texto que contém informações do Banco de Dados
 loader_banco = TextLoader(os.path.join(DOCS_DIR, "banco.txt"), encoding="utf-8")
 docs_banco = loader_banco.load()
 
+# Carrega o texto que contém informações retiradas do Extreme Presentation, para melhorar a geração de gráficos
 loader_graficos = TextLoader(os.path.join(DOCS_DIR, "graficos.txt"), encoding="utf-8")
 docs_graficos = loader_graficos.load()
 
+# Carrega o texto que contém informações sobre usabilidade do sistema
 loader_manual = TextLoader(os.path.join(DOCS_DIR, "manual_do_usuario.txt"), encoding="utf-8")
 docs_manual = loader_manual.load()
 
+# Carrega o texto que contém informações sobre a documentação do sistema
 loader_documentacao = TextLoader(os.path.join(DOCS_DIR, "documentacao.txt"), encoding="utf-8")
 docs_documentacao = loader_documentacao.load()
 
+# Carrega o texto que contém informações sobre navegação na aplicação. Feature que não foi colocada no artigo, mas já existe no sistema.
 loader_links = TextLoader(os.path.join(DOCS_DIR, "links.txt"), encoding="utf-8")
 docs_links = loader_links.load()
 
@@ -49,7 +64,7 @@ embeddings = OpenAIEmbeddings()
 
 # Cria ou carrega o índice FAISS com persistência local
 if os.path.exists(INDEX_DIR):
-    # Carrega o índice salvo localmente, permitindo a desserialização (utilize allow_dangerous_deserialization=True se confiar na fonte)
+    # Carrega o índice salvo localmente, permitindo a desserialização do conteúdo
     vectorstore = FAISS.load_local(INDEX_DIR, embeddings, allow_dangerous_deserialization=True)
     print("Índice FAISS carregado do diretório local.")
 else:
@@ -68,22 +83,23 @@ def get_relevant_context(query, k=8):
     return context
 
 # =======================
-# Criação dos Prompts
+# Definição dos modelos de LLMs
 # =======================
+# É possível usar qualquer um para gerar as respostas dos agentes. É necessário ter uma chave de API válida para cada modelo.
+# O modelo usado no artigo foi o GPT-4o.
 
-#model = ChatOpenAI(model="gpt-4o", temperature=1)
-model = ChatOpenAI(model="gpt-4o-mini", temperature=1)
-# model = ChatGoogleGenerativeAI(
-#     model="gemini-2.0-flash",
-#     temperature=0.8,
-#     max_tokens=None,
-#     timeout=None,
-#     max_retries=2,
-# )
+model = ChatOpenAI(model="gpt-4o", temperature=1)
+#model = ChatOpenAI(model="gpt-4o-mini", temperature=1)
+#model = ChatGoogleGenerativeAI(model="gemini-2.0-flash",temperature=0.8,max_tokens=None,timeout=None,max_retries=2,)
 #model = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=1)
 
+# =======================
+# Criação dos Prompts
+# =======================
+# Inclui instruções específicas e também as informações/contexto relevante de acordo com o pedido do usuário
+
 def get_helper_prompt(user_query):
-    # Instruções estáticas que incluem os links desejados
+    # Instruções estáticas do agente Helper
     base_instructions = """
     Você é o agente Helper. Sua missão é auxiliar os usuários a navegar pela plataforma, esclarecer dúvidas sobre o funcionamento do site e efetuar cadastros ou alterações de dados no banco conforme solicitado. Seja completo, mas compacto e direto em suas respostas.
     Se houver dúvidas sobre o sistema, responda com base nas informações disponíveis. Sempre se proponha a fazer o cadastro pelo usuário, além de falar como fazer manualmente e mandar o Link de acesso à página ao usuário. 
@@ -100,12 +116,14 @@ def get_helper_prompt(user_query):
     Como user_id, use {{user}}, como empresa_id, use {{empresa}}.
     """
         
+    # Obtém contexto relevante com base no pedido do usuário
     context = get_relevant_context(user_query)
     
+    # Retorna o prompt completo
     return f"""Contexto Helper:
-{context}
+    {context}
 
-{base_instructions}
+    {base_instructions}
 """
 
 def get_data_analytics_prompt(user_query):
@@ -134,13 +152,14 @@ def get_data_analytics_prompt(user_query):
     Como user_id, use {{user}}, como empresa_id, use {{empresa}}.
     """
     
-    # Combina a entrada do usuário com as instruções para ampliar o contexto
+    # Obtém contexto relevante com base no pedido do usuário
     relevant_context = get_relevant_context(user_query)
     
+    # Retorna o prompt completo
     return f"""Contexto Data Analytics:
-{relevant_context}
+    {relevant_context}
 
-{base_instructions}
+    {base_instructions}
 """
 
 
@@ -156,17 +175,22 @@ def get_optimizer_prompt(user_query):
     Não utilize markdown ou caracteres especiais em nenhuma das respostas.
     Como token de usuário, use {{token}}"""
     
-    # Combina a consulta do usuário com as instruções do agente para enriquecer o contexto
+    # Obtém contexto relevante com base no pedido do usuário
     relevant_context = get_relevant_context(user_query)
     
+    # Retorna o prompt completo
     return f"""Contexto Otimizador:
-{relevant_context}
+    {relevant_context}
 
-{base_instructions}
+    {base_instructions}
 """
 
 
-# Criação dos agentes com os prompts iniciais (serão atualizados a cada consulta)
+# =======================
+# Inicialização dos Agentes com os Prompts e Ferramentas
+# =======================
+
+# Criação do agente Helper
 helper = create_react_agent(
     model=model,
     tools=[queryTools.query],
@@ -174,6 +198,7 @@ helper = create_react_agent(
     prompt=get_helper_prompt(""),
 )
 
+# Criação do agente de Data Analytics
 data_analytics = create_react_agent(
     model=model,
     tools=[queryTools.query],
@@ -181,6 +206,7 @@ data_analytics = create_react_agent(
     prompt=get_data_analytics_prompt(""),
 )
 
+# Criação do agente Otimizador
 optimizer = create_react_agent(
     model=model,
     tools=[optimizationTools.run_optimization, getPlano.getPlano],
@@ -188,10 +214,7 @@ optimizer = create_react_agent(
     prompt=get_optimizer_prompt(""),
 )
 
-# =======================
-# Criação do Supervisor
-# =======================
-# Configura o Manager (supervisor) que encaminha a consulta para o agente mais adequado
+# Criação do supervisor
 workflow = create_supervisor(
     [helper, data_analytics, optimizer],
     model=model,
