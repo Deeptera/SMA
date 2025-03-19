@@ -1,39 +1,46 @@
-# Código dos agentes
-# 1. Definição dos diretórios e carregamento dos documentos usando embeddings e FAISS
-# 2. Criação dos prompts para os agentes
-# 3. Inicialização dos agentes com os prompts e as ferramentas
+"""
+Este arquivo contém a base de conhecimento e os prompts dos agentes utilizados no artigo.
 
-import os # Para trabalhar com caminho de arquivos
-from dotenv import load_dotenv # Para carregar variáveis de ambiente, ex: chaves API
-load_dotenv()
+O código está organizado nas seguintes seções:
+1. Importação de bibliotecas e frameworks
+2. Definição dos diretórios e carregamento dos documentos
+3. Criação do índice com FAISS para recuperação de contexto
+4. Definição dos modelos de LLMs
+5. Criação dos Prompts
+6. Inicialização dos Agentes com os Prompts e Ferramentas
+"""
+
+# ====================================== #
+# Importação de bibliotecas e frameworks #
+# ====================================== #
 
 # Importação dos módulos para comunicação com API das LLMs
 from langchain_google_genai import ChatGoogleGenerativeAI # Permite uso do gemini
 from langchain_anthropic import ChatAnthropic # Permite uso do Claude
 from langchain_openai import ChatOpenAI # Permite uso do GPT-4o e GPT-4o-mini
-
 # Importação dos módulos para criação dos agentes
 from langgraph_supervisor import create_supervisor # Criação do supervisor
 from langgraph.prebuilt import create_react_agent # Criação dos agentes
-
 # Importação dos módulos para criação do embeddings e recuperação de contexto
 from langchain.document_loaders import TextLoader # Carregamento de documentos
 from langchain_openai import OpenAIEmbeddings # Embeddings para recuperação de contexto
 from langchain_community.vectorstores import FAISS # Índice FAISS para recuperação de contexto
-
 # Importação das ferramentas dos agentes, criadas pelos próprios desenvolvedores
 from api.agentes.tools import optimizationTools, queryTools, getPlano # Ferramentas para os agentes
+# Importação de módulos para manipulação de diretórios e variáveis de ambiente
+import os # Biblioteca para manipulação de diretórios do sistema operacional
+from dotenv import load_dotenv # Biblioteca para carregar variáveis de ambiente
+load_dotenv() # Carrega variáveis de ambiente, como chaves API
 
-# =======================
-# Definição dos diretórios e carregamento dos documentos
-# =======================
+# ====================================================== #
+# Definição dos diretórios e carregamento dos documentos #
+# ====================================================== #
 
-# Obtém o diretório base e define os diretórios dos documentos e do índice
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOCS_DIR = os.path.join(BASE_DIR, "docs")
 INDEX_DIR = os.path.join(BASE_DIR, "faiss_index")
 
-# Carrega o texto que contém informações do Banco de Dados
+# Carrega o texto que contém informações sobre os modelos das entidades do banco
 loader_banco = TextLoader(os.path.join(DOCS_DIR, "banco.txt"), encoding="utf-8")
 docs_banco = loader_banco.load()
 
@@ -41,7 +48,7 @@ docs_banco = loader_banco.load()
 loader_graficos = TextLoader(os.path.join(DOCS_DIR, "graficos.txt"), encoding="utf-8")
 docs_graficos = loader_graficos.load()
 
-# Carrega o texto que contém informações sobre usabilidade do sistema
+# Carrega o texto que contém informações sobre uso do sistema
 loader_manual = TextLoader(os.path.join(DOCS_DIR, "manual_do_usuario.txt"), encoding="utf-8")
 docs_manual = loader_manual.load()
 
@@ -56,9 +63,9 @@ docs_links = loader_links.load()
 # Junta todos os documentos para indexação
 docs = docs_banco + docs_graficos + docs_manual + docs_documentacao + docs_links
 
-# =======================
-# Criação do índice com FAISS para recuperação de contexto
-# =======================
+# ======================================================== #
+# Criação do índice com FAISS para recuperação de contexto #
+# ======================================================== #
 
 embeddings = OpenAIEmbeddings()
 
@@ -82,9 +89,9 @@ def get_relevant_context(query, k=8):
     context = "\n".join([doc.page_content for doc in relevant_docs])
     return context
 
-# =======================
-# Definição dos modelos de LLMs
-# =======================
+# ============================= #
+# Definição dos modelos de LLMs #
+# ============================= #
 # É possível usar qualquer um para gerar as respostas dos agentes. É necessário ter uma chave de API válida para cada modelo.
 # O modelo usado no artigo foi o GPT-4o.
 # É possível usar um único modelo para todos os agentes, ou usar modelos diferentes entre eles. Mas também não foi explorado no artigo.
@@ -94,12 +101,22 @@ model = ChatOpenAI(model="gpt-4o", temperature=1)
 #model = ChatGoogleGenerativeAI(model="gemini-2.0-flash",temperature=0.8,max_tokens=None,timeout=None,max_retries=2,)
 #model = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=1)
 
-# =======================
-# Criação dos Prompts
-# =======================
+# =================== #
+# Criação dos Prompts #
+# =================== #
 # Inclui instruções específicas e também as informações/contexto relevante de acordo com o pedido do usuário
 
+# Prompt para o agente Helper
 def get_helper_prompt(user_query):
+    """
+    Gera o prompt para o agente Helper, que auxilia usuários com navegação, cadastros e dúvidas.
+
+    Args:
+        user_query (str): A consulta do usuário.
+
+    Returns:
+        str: O prompt completo para o agente Helper.
+    """
     # Instruções estáticas do agente Helper
     base_instructions = """
     Você é o agente Helper. Sua missão é auxiliar os usuários a navegar pela plataforma, esclarecer dúvidas sobre o funcionamento do site e efetuar cadastros ou alterações de dados no banco conforme solicitado. Seja completo, mas compacto e direto em suas respostas.
@@ -127,6 +144,7 @@ def get_helper_prompt(user_query):
     {base_instructions}
 """
 
+# Prompt para o agente Data_Analytics
 def get_data_analytics_prompt(user_query):
     # Instruções estáticas do agente Data Analytics
     base_instructions = """ATENÇÃO: É estritamente proibido utilizar qualquer dado fictício! Todas as informações devem ser obtidas diretamente do banco de dados por meio de uma query Django que filtre corretamente pelo usuário e pela empresa. Se a consulta não retornar dados, informe ao usuário que não há registros disponíveis, sem gerar dados simulados.
@@ -163,7 +181,7 @@ def get_data_analytics_prompt(user_query):
     {base_instructions}
 """
 
-
+# Prompt para o agente Optimizer
 def get_optimizer_prompt(user_query):
     # Instruções estáticas do agente Otimizador
     base_instructions = """Você é um especialista em otimização de sequenciamento para carregamento e descarregamento de navios graneleiros.
@@ -187,9 +205,9 @@ def get_optimizer_prompt(user_query):
 """
 
 
-# =======================
-# Inicialização dos Agentes com os Prompts e Ferramentas
-# =======================
+# ====================================================== #
+# Inicialização dos Agentes com os Prompts e Ferramentas #
+# ====================================================== #
 
 # Criação do agente Helper
 helper = create_react_agent(
