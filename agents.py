@@ -108,15 +108,6 @@ model = ChatOpenAI(model="gpt-4o", temperature=1)
 
 # Prompt para o agente Helper
 def get_helper_prompt(user_query):
-    """
-    Gera o prompt para o agente Helper, que auxilia usuários com navegação, cadastros e dúvidas.
-
-    Args:
-        user_query (str): A consulta do usuário.
-
-    Returns:
-        str: O prompt completo para o agente Helper.
-    """
     # Instruções estáticas do agente Helper
     base_instructions = """
     Você é o agente Helper. Sua missão é auxiliar os usuários a navegar pela plataforma, esclarecer dúvidas sobre o funcionamento do site e efetuar cadastros ou alterações de dados no banco conforme solicitado. Seja completo, mas compacto e direto em suas respostas.
