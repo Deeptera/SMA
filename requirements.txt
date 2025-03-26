@@ -1,0 +1,9 @@
+langchain==0.0.2  # Para integração com modelos de linguagem (OpenAI, FAISS, etc.)
+langgraph==0.0.1  # Para a criação de agentes e supervisores reativos
+langchain_community==0.0.1  # Para carregar e manipular documentos e usar FAISS
+openai==0.12.0  # Para interação com a API da OpenAI (se necessário)
+faiss-cpu==1.7.0  # Para manipulação de índices FAISS (sem dependências de GPU)
+django==3.2.9  # Caso esteja utilizando Django
+djangorestframework==3.12.4  # Se estiver utilizando Django REST Framework para criar APIs
+python-dotenv==0.19.2  # Para carregar variáveis de ambiente do arquivo .env
+request
