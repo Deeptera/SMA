@@ -1,5 +1,7 @@
 """
-Este arquivo contém a base de conhecimento e os prompts dos agentes utilizados no artigo.
+Este arquivo contém a lógica para processar e extrair informações
+da base de conhecimento, os prompts dos agentes utilizados no artigo
+e a inicialização do workflow.
 
 O código está organizado nas seguintes seções:
 1. Importação de bibliotecas e frameworks
